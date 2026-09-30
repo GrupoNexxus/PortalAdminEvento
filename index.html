@@ -407,6 +407,14 @@
         <div class="day-axis" id="daysAxis"></div>
       </div>
 
+      <div class="panel" style="margin-top:18px">
+        <h2>Arte "Eu vou!"<small id="arteInfo"></small></h2>
+        <div class="bars">
+          <div class="bar-row" style="grid-template-columns:minmax(0,11rem) 1fr 3.2rem"><span>Baixaram a arte</span><div><i id="arteBarB" style="width:0"></i></div><b id="artePctB">0%</b></div>
+          <div class="bar-row" style="grid-template-columns:minmax(0,11rem) 1fr 3.2rem"><span>Compartilharam</span><div><i id="arteBarC" style="width:0;background:var(--pink)"></i></div><b id="artePctC">0%</b></div>
+        </div>
+      </div>
+
       <div class="breakdowns">
         <div class="panel"><h2>Por onde soube</h2><div class="bars" id="bOrigem"></div></div>
         <div class="panel"><h2>Segmento</h2><div class="bars" id="bSegmento"></div></div>
@@ -574,7 +582,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   var SUPABASE_KEY = 'sb_publishable_2E3z8g-jJLgZ2GmIA_zABg_Xf5IwvIw';
   var sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }) : null;
 
-  var inscritos = [], logado = false, gravando = 0, cargaAtual = null, detalheId = null;
+  var inscritos = [], arte = {}, logado = false, gravando = 0, cargaAtual = null, detalheId = null;
 
   // Conta as gravações em andamento, para a atualização automática não atropelar nenhuma
   function comGravacao(q){
@@ -599,10 +607,18 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       sb.from('inscricoes').select('*').order('criado_em', { ascending: false }),
       sb.from('evento_config').select('inscricoes_abertas').eq('id', 1).maybeSingle(),
       sb.from('premios').select('*').order('ordem').order('criado_em'),
-      sb.from('sorteios').select('*').order('sorteado_em')
+      sb.from('sorteios').select('*').order('sorteado_em'),
+      sb.from('divulgacao').select('codigo, acao, criado_em').order('criado_em')
     ]).then(function(res){
       for (var i = 0; i < res.length; i++) if (res[i].error) throw res[i].error;
       inscritos = res[0].data || [];
+      // Downloads e compartilhamentos da arte "Eu vou!", agrupados por inscrição
+      arte = {};
+      (res[4].data || []).forEach(function(d){
+        var r = arte[d.codigo] || (arte[d.codigo] = { baixou: 0, compartilhou: 0, primeira: d.criado_em });
+        if (d.acao === 'baixou_arte') r.baixou++;
+        else if (d.acao === 'compartilhou_arte') r.compartilhou++;
+      });
       if (res[1].data) abertas = res[1].data.inscricoes_abertas;
       montarSorteio(res[2].data || [], res[3].data || []);
       $('loadingLine').hidden = true;
@@ -734,6 +750,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     barras($('bSegmento'), contar('segmento', true), 7);
     barras($('bCidade'), contar('cidade'), 7);
     barras($('bCargo'), contar('cargo'), 6);
+
+    // Arte "Eu vou!": quantos inscritos baixaram e quantos compartilharam
+    var nB = 0, nC = 0, nAlguma = 0;
+    inscritos.forEach(function(p){ var r = arte[p.codigo]; if (!r) return; nAlguma++; if (r.baixou) nB++; if (r.compartilhou) nC++; });
+    var pB = t ? Math.round(nB / t * 100) : 0, pC = t ? Math.round(nC / t * 100) : 0;
+    $('arteBarB').style.width = pB + '%'; $('artePctB').textContent = pB + '%';
+    $('arteBarC').style.width = pC + '%'; $('artePctC').textContent = pC + '%';
+    $('arteInfo').textContent = nAlguma + ' de ' + t + ' inscritos usaram a arte (' + nB + ' baixaram, ' + nC + ' compartilharam)';
   }
 
   // ---------- Lista ----------
@@ -759,6 +783,18 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if (s === 'pago') return '<button class="btn btn-sm btn-undo" data-unpay="' + p.id + '" type="button">Voltar para pendente</button>';
     return '';
   }
+  function tagArte(p){
+    var r = arte[p.codigo]; if (!r) return '';
+    return ' <span class="f5tag" style="color:#00703D">' + (r.compartilhou ? 'Compartilhou a arte' : 'Baixou a arte') + '</span>';
+  }
+  function textoArte(p){
+    var r = arte[p.codigo]; if (!r) return 'Não usou';
+    var partes = [];
+    if (r.baixou) partes.push('baixou' + (r.baixou > 1 ? ' ' + r.baixou + ' vezes' : ''));
+    if (r.compartilhou) partes.push('compartilhou' + (r.compartilhou > 1 ? ' ' + r.compartilhou + ' vezes' : ''));
+    var txt = partes.join(' e ');
+    return txt.charAt(0).toUpperCase() + txt.slice(1) + ' (primeira vez em ' + dataHora(r.primeira) + ')';
+  }
   function renderLista(){
     aplicarFiltros();
     $('resultLine').textContent = filtrados.length === inscritos.length ? inscritos.length + ' inscritos' : 'Mostrando ' + filtrados.length + ' de ' + inscritos.length + ' inscritos';
@@ -766,7 +802,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     $('rows').innerHTML = filtrados.map(function(p){
       var s = statusDe(p);
       return '<tr>' +
-        '<td class="c-name"><button class="who" data-open="' + p.id + '" type="button"><b>' + esc(p.nome) + '</b><span>' + esc(p.empresa) + (p.cliente_f5 ? ' <span class="f5tag">Cliente F5</span>' : '') + '</span></button></td>' +
+        '<td class="c-name"><button class="who" data-open="' + p.id + '" type="button"><b>' + esc(p.nome) + '</b><span>' + esc(p.empresa) + (p.cliente_f5 ? ' <span class="f5tag">Cliente F5</span>' : '') + tagArte(p) + '</span></button></td>' +
         '<td class="c-wpp">' + fone(p.whatsapp) + '</td>' +
         '<td class="c-seg">' + esc(p.segmento.replace(/^Outros: /,'')) + '<br><span style="color:var(--muted);font-size:.8rem">' + esc(p.cidade) + '</span></td>' +
         '<td class="c-pay">' + esc(p.forma_pagamento) + '</td>' +
@@ -836,6 +872,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         '<dt>Pagamento</dt><dd>' + esc(p.forma_pagamento) + (p.codigo_promocional ? ' (' + p.codigo_promocional + ')' : '') + '</dd>' +
         '<dt>Inscrito em</dt><dd>' + dataHora(p.criado_em) + '</dd>' +
         '<dt>Check-in</dt><dd>' + (p.checkin_em ? dataHora(p.checkin_em) : 'Ainda não') + '</dd>' +
+        '<dt>Arte "Eu vou!"</dt><dd>' + textoArte(p) + '</dd>' +
       '</dl>' +
       '<div class="act">' + acao(p) + '</div>';
     $('drawer').hidden = false; $('scrim').hidden = false;
@@ -864,7 +901,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         'Código do ingresso': p.codigo, 'Nome': p.nome, 'WhatsApp': fone(p.whatsapp), 'Empresa': p.empresa, 'CNPJ': p.cnpj ? cnpjFmt(p.cnpj) : '',
         'Segmento': p.segmento, 'Cargo': p.cargo || '', 'Cidade': p.cidade, 'Por onde soube': p.origem, 'Cliente F5': p.cliente_f5 ? 'Sim' : 'Não',
         'Forma de pagamento': p.forma_pagamento, 'Status': rotulo[statusDe(p)], 'Pago em': p.pago_em ? dataHora(p.pago_em) : '',
-        'Inscrito em': dataHora(p.criado_em), 'Check-in': p.checkin_em ? dataHora(p.checkin_em) : ''
+        'Inscrito em': dataHora(p.criado_em), 'Check-in': p.checkin_em ? dataHora(p.checkin_em) : '',
+        'Baixou a arte': arte[p.codigo] && arte[p.codigo].baixou ? 'Sim' : 'Não',
+        'Compartilhou a arte': arte[p.codigo] && arte[p.codigo].compartilhou ? 'Sim' : 'Não'
       };
     });
     var nome = 'inscritos-varejo-que-vende-' + new Date().toISOString().slice(0,10);
