@@ -337,6 +337,9 @@
     .legend b{font-size:1.1rem}
     .bar-row{grid-template-columns:minmax(0,7.5rem) 1fr 2rem}
   }
+  .bar-row.arte-row{grid-template-columns:minmax(0,9rem) 1fr 5.6rem auto}
+  .bar-row.arte-row b{white-space:nowrap}
+  @media (max-width: 720px){ .bar-row.arte-row{grid-template-columns:minmax(0,6.5rem) 1fr 4.6rem auto} }
   @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
 </style>
 </head>
@@ -410,9 +413,12 @@
       <div class="panel" style="margin-top:18px">
         <h2>Arte "Eu vou!"<small id="arteInfo"></small></h2>
         <div class="bars">
-          <div class="bar-row" style="grid-template-columns:minmax(0,11rem) 1fr 3.2rem"><span>Baixaram a arte</span><div><i id="arteBarB" style="width:0"></i></div><b id="artePctB">0%</b></div>
-          <div class="bar-row" style="grid-template-columns:minmax(0,11rem) 1fr 3.2rem"><span>Compartilharam</span><div><i id="arteBarC" style="width:0;background:var(--pink)"></i></div><b id="artePctC">0%</b></div>
+          <div class="bar-row arte-row"><span>Usaram a arte</span><div><i id="arteBarU" style="width:0"></i></div><b id="arteNumU">0</b><button class="btn btn-line btn-sm" data-vernomes="usaram" type="button">Ver nomes</button></div>
+          <div class="bar-row arte-row"><span>Baixaram</span><div><i id="arteBarB" style="width:0"></i></div><b id="arteNumB">0</b><button class="btn btn-line btn-sm" data-vernomes="baixaram" type="button">Ver nomes</button></div>
+          <div class="bar-row arte-row"><span>Compartilharam</span><div><i id="arteBarC" style="width:0;background:var(--pink)"></i></div><b id="arteNumC">0</b><button class="btn btn-line btn-sm" data-vernomes="compartilharam" type="button">Ver nomes</button></div>
+          <div class="bar-row arte-row"><span>Não usaram</span><div><i id="arteBarN" style="width:0;background:#B7BCD3"></i></div><b id="arteNumN">0</b><button class="btn btn-line btn-sm" data-vernomes="nao" type="button">Ver nomes</button></div>
         </div>
+        <p class="ck-err" id="arteErro" hidden></p>
       </div>
 
       <div class="breakdowns">
@@ -438,6 +444,9 @@
         </select>
         <select id="fCliente" aria-label="Cliente F5">
           <option value="">Clientes e não clientes</option><option value="sim">Só clientes F5</option><option value="nao">Só não clientes</option>
+        </select>
+        <select id="fArte" aria-label="Arte Eu vou">
+          <option value="">Arte: todos</option><option value="usaram">Usaram a arte</option><option value="baixaram">Baixaram a arte</option><option value="compartilharam">Compartilharam a arte</option><option value="nao">Não usaram a arte</option>
         </select>
         <button class="btn btn-green" id="openExport" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg>
@@ -582,7 +591,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   var SUPABASE_KEY = 'sb_publishable_2E3z8g-jJLgZ2GmIA_zABg_Xf5IwvIw';
   var sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }) : null;
 
-  var inscritos = [], arte = {}, logado = false, gravando = 0, cargaAtual = null, detalheId = null;
+  var inscritos = [], arte = {}, arteErro = '', logado = false, gravando = 0, cargaAtual = null, detalheId = null;
 
   // Conta as gravações em andamento, para a atualização automática não atropelar nenhuma
   function comGravacao(q){
@@ -610,7 +619,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       sb.from('sorteios').select('*').order('sorteado_em'),
       sb.from('divulgacao').select('codigo, acao, criado_em').order('criado_em')
     ]).then(function(res){
-      for (var i = 0; i < res.length; i++) if (res[i].error) throw res[i].error;
+      for (var i = 0; i < 4; i++) if (res[i].error) throw res[i].error;
+      arteErro = res[4].error ? (res[4].error.message || 'erro') : '';
+      if (arteErro) console.warn('[Arte] Não foi possível ler a tabela divulgacao:', res[4].error);
       inscritos = res[0].data || [];
       // Downloads e compartilhamentos da arte "Eu vou!", agrupados por inscrição
       arte = {};
@@ -752,24 +763,36 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     barras($('bCargo'), contar('cargo'), 6);
 
     // Arte "Eu vou!": quantos inscritos baixaram e quantos compartilharam
-    var nB = 0, nC = 0, nAlguma = 0;
-    inscritos.forEach(function(p){ var r = arte[p.codigo]; if (!r) return; nAlguma++; if (r.baixou) nB++; if (r.compartilhou) nC++; });
-    var pB = t ? Math.round(nB / t * 100) : 0, pC = t ? Math.round(nC / t * 100) : 0;
-    $('arteBarB').style.width = pB + '%'; $('artePctB').textContent = pB + '%';
-    $('arteBarC').style.width = pC + '%'; $('artePctC').textContent = pC + '%';
-    $('arteInfo').textContent = nAlguma + ' de ' + t + ' inscritos usaram a arte (' + nB + ' baixaram, ' + nC + ' compartilharam)';
+    var nB = 0, nC = 0, nU = 0;
+    inscritos.forEach(function(p){ var r = arte[p.codigo]; if (!r) return; nU++; if (r.baixou) nB++; if (r.compartilhou) nC++; });
+    var nN = t - nU;
+    [['U', nU], ['B', nB], ['C', nC], ['N', nN]].forEach(function(x){
+      var pct = t ? Math.round(x[1] / t * 100) : 0;
+      $('arteBar' + x[0]).style.width = pct + '%';
+      $('arteNum' + x[0]).textContent = x[1] + ' (' + pct + '%)';
+    });
+    $('arteInfo').textContent = 'de ' + t + ' inscritos';
+    $('arteErro').hidden = !arteErro;
+    $('arteErro').textContent = arteErro ? 'Não foi possível ler os registros da arte no banco (' + arteErro + '). Confira a tabela divulgacao no Supabase.' : '';
   }
 
   // ---------- Lista ----------
   var filtrados = [];
   function aplicarFiltros(){
     var q = norm($('q').value.trim()), qd = $('q').value.replace(/\D/g,'');
-    var fs = $('fStatus').value, ff = $('fForma').value, fc = $('fCliente').value;
+    var fs = $('fStatus').value, ff = $('fForma').value, fc = $('fCliente').value, fa = $('fArte').value;
     filtrados = inscritos.filter(function(p){
       if (fs && statusDe(p) !== fs) return false;
       if (ff && p.forma_pagamento !== ff) return false;
       if (fc === 'sim' && !p.cliente_f5) return false;
       if (fc === 'nao' && p.cliente_f5) return false;
+      if (fa){
+        var r = arte[p.codigo];
+        if (fa === 'usaram' && !r) return false;
+        if (fa === 'baixaram' && !(r && r.baixou)) return false;
+        if (fa === 'compartilharam' && !(r && r.compartilhou)) return false;
+        if (fa === 'nao' && r) return false;
+      }
       if (q){
         var ok = norm(p.nome).indexOf(q) > -1 || norm(p.empresa).indexOf(q) > -1 || (qd.length >= 3 && p.whatsapp.indexOf(qd) > -1);
         if (!ok) return false;
@@ -812,7 +835,16 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       '</tr>';
     }).join('');
   }
-  ['q','fStatus','fForma','fCliente'].forEach(function(id){ $(id).addEventListener('input', renderLista); });
+  ['q','fStatus','fForma','fCliente','fArte'].forEach(function(id){ $(id).addEventListener('input', renderLista); });
+
+  // "Ver nomes" no quadro da arte: abre a aba Inscritos já filtrada
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('[data-vernomes]'); if (!b) return;
+    $('q').value = ''; $('fStatus').value = ''; $('fForma').value = ''; $('fCliente').value = '';
+    $('fArte').value = b.dataset.vernomes;
+    document.querySelector('.tab[data-view="inscritos"]').click();
+    renderLista(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 
   // ---------- Mudança de status com "Desfazer" ----------
   var toastTimer, desfazer = null;
