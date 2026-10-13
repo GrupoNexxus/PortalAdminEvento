@@ -309,6 +309,33 @@
   .st-rm{background:none;border:0;color:var(--muted);cursor:pointer;font-size:1.1rem;width:30px;height:30px;border-radius:50%}
   .st-rm:hover{background:var(--bg);color:#C62828}
   .st-demo p{font-size:.85rem;color:var(--muted);margin-bottom:10px}
+  /* ---------- Códigos promocionais ---------- */
+  .cp-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.7fr);gap:18px;align-items:start}
+  .cp-form{display:flex;flex-direction:column;gap:12px}
+  .cp-form label{display:flex;flex-direction:column;gap:6px;font-size:.85rem;font-weight:600}
+  .cp-form input{padding:11px 14px;border:1.5px solid var(--line);border-radius:12px;font-weight:500}
+  .cp-form input:focus{border-color:var(--ink);outline:none}
+  .cp-form input[name="codigo"]{font-family:var(--wide);font-weight:600;letter-spacing:.01em}
+  .cp-help{font-size:.82rem;color:var(--muted);line-height:1.5}
+  .cp-err{font-size:.84rem;color:#B42318;font-weight:600}
+  .cp-code{font-family:var(--wide);font-weight:600;font-size:.88rem}
+  .cp-code small{display:block;font-family:var(--font);font-weight:500;font-size:.8rem;color:var(--muted);margin-top:2px}
+  tr.cp-off .cp-code{color:var(--muted)}
+  .pill.ativo{background:var(--green-soft);color:#00703D}
+  .pill.inativo{background:var(--bg);color:var(--muted)}
+  .cp-acts{display:flex;gap:6px;justify-content:flex-end}
+  .cp-uses-l{display:none}
+  @media (max-width: 900px){ .cp-grid{grid-template-columns:minmax(0,1fr)} }
+  @media (max-width: 720px){
+    #view-codigos .table-wrap{margin:0}
+    #view-codigos tr{grid-template-columns:1fr auto;align-items:center}
+    td.cp-c-code{grid-column:1 / -1}
+    td.cp-c-uses{font-size:.84rem;color:var(--muted)}
+    .cp-uses-l{display:inline}
+    td.cp-c-st{justify-self:end}
+    td.cp-c-act{grid-column:1 / -1}
+    .cp-acts{justify-content:flex-start;flex-wrap:wrap}
+  }
   @media (max-width: 900px){ .st-grid{grid-template-columns:minmax(0,1fr)} .st-stage{min-height:420px} }
 
   /* ---------- Responsivo ---------- */
@@ -380,6 +407,7 @@
         <button class="tab" role="tab" aria-selected="false" data-view="inscritos" type="button">Inscritos</button>
         <button class="tab" role="tab" aria-selected="false" data-view="checkin" type="button">Check-in</button>
         <button class="tab" role="tab" aria-selected="false" data-view="sorteio" type="button">Sorteio</button>
+        <button class="tab" role="tab" aria-selected="false" data-view="codigos" type="button">Códigos promocionais</button>
       </nav>
     </div>
   </header>
@@ -395,7 +423,7 @@
           <div class="legend">
             <div class="c-pago"><b id="kPago">0</b><span>pagos</span></div>
             <div class="c-pend"><b id="kPend">0</b><span>com pagamento pendente</span></div>
-            <div class="c-cort"><b id="kCort">0</b><span>cortesias #ClienteF5</span></div>
+            <div class="c-cort"><b id="kCort">0</b><span>cortesias por código promocional</span></div>
           </div>
         </div>
         <div class="panel money">
@@ -542,6 +570,35 @@
         </div>
       </div>
     </section>
+
+    <!-- Códigos promocionais -->
+    <section id="view-codigos" role="tabpanel" hidden>
+      <div class="cp-grid">
+        <div class="panel">
+          <h2>Novo código</h2>
+          <form class="cp-form" id="cpForm" novalidate>
+            <label>Código
+              <input name="codigo" type="text" maxlength="40" autocomplete="off" placeholder="Ex.: convidadocomercial"></label>
+            <label><span>Para quem é <span style="font-weight:500;color:var(--muted)">(opcional)</span></span>
+              <input name="descricao" type="text" maxlength="80" autocomplete="off" placeholder="Ex.: Convidados do Comercial"></label>
+            <p class="cp-err" id="cpErr" hidden></p>
+            <button class="btn btn-green" id="cpBtn" type="submit">Criar código</button>
+          </form>
+          <p class="cp-help" style="margin-top:14px">Quem usar um código ativo entra como cortesia, sem pagamento. No site, o código vale com ou sem o # e com letras maiúsculas ou minúsculas. Use só letras e números, sem espaços.</p>
+        </div>
+        <div class="panel">
+          <h2>Códigos cadastrados<small id="cpInfo"></small></h2>
+          <p class="cp-err" id="cpLoadErr" hidden></p>
+          <div class="table-wrap" style="border:0;border-radius:0">
+            <table>
+              <thead><tr><th>Código</th><th>Inscrições</th><th>Situação</th><th><span hidden>Ações</span></th></tr></thead>
+              <tbody id="cpRows"></tbody>
+            </table>
+          </div>
+          <p class="ck-none" id="cpEmpty" hidden>Nenhum código cadastrado. Crie o primeiro ao lado.</p>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -591,6 +648,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   var SUPABASE_KEY = 'sb_publishable_2E3z8g-jJLgZ2GmIA_zABg_Xf5IwvIw';
   var sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }) : null;
 
+  var codigos = [], cpErro = '';
   var inscritos = [], arte = {}, arteErro = '', logado = false, gravando = 0, cargaAtual = null, detalheId = null;
 
   // Conta as gravações em andamento, para a atualização automática não atropelar nenhuma
@@ -617,12 +675,17 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       sb.from('evento_config').select('inscricoes_abertas').eq('id', 1).maybeSingle(),
       sb.from('premios').select('*').order('ordem').order('criado_em'),
       sb.from('sorteios').select('*').order('sorteado_em'),
-      sb.from('divulgacao').select('codigo, acao, criado_em').order('criado_em')
+      sb.from('divulgacao').select('codigo, acao, criado_em').order('criado_em'),
+      sb.from('codigos_promocionais').select('*').order('criado_em')
     ]).then(function(res){
       for (var i = 0; i < 4; i++) if (res[i].error) throw res[i].error;
       arteErro = res[4].error ? (res[4].error.message || 'erro') : '';
       if (arteErro) console.warn('[Arte] Não foi possível ler a tabela divulgacao:', res[4].error);
       inscritos = res[0].data || [];
+      // Códigos promocionais: se a tabela ainda não existir, só esta aba mostra o aviso
+      cpErro = res[5].error ? (res[5].error.message || 'erro') : '';
+      if (cpErro) console.warn('[Códigos] Não foi possível ler a tabela codigos_promocionais:', res[5].error);
+      else codigos = res[5].data || [];
       // Downloads e compartilhamentos da arte "Eu vou!", agrupados por inscrição
       arte = {};
       (res[4].data || []).forEach(function(d){
@@ -828,7 +891,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         '<td class="c-name"><button class="who" data-open="' + p.id + '" type="button"><b>' + esc(p.nome) + '</b><span>' + esc(p.empresa) + (p.cliente_f5 ? ' <span class="f5tag">Cliente F5</span>' : '') + tagArte(p) + '</span></button></td>' +
         '<td class="c-wpp">' + fone(p.whatsapp) + '</td>' +
         '<td class="c-seg">' + esc(p.segmento.replace(/^Outros: /,'')) + '<br><span style="color:var(--muted);font-size:.8rem">' + esc(p.cidade) + '</span></td>' +
-        '<td class="c-pay">' + esc(p.forma_pagamento) + '</td>' +
+        '<td class="c-pay">' + esc(p.forma_pagamento) + (p.codigo_promocional ? '<br><span style="color:var(--muted);font-size:.8rem">' + esc(p.codigo_promocional) + '</span>' : '') + '</td>' +
         '<td class="c-status"><span class="pill ' + s + '">' + rotulo[s] + '</span></td>' +
         '<td class="c-date" style="white-space:nowrap">' + dataHora(p.criado_em) + '</td>' +
         '<td class="c-act"><div class="act">' + acao(p) + '</div></td>' +
@@ -1295,7 +1358,74 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   });
   document.addEventListener('fullscreenchange', function(){ if (!document.fullscreenElement) sairTv(); });
 
-  function renderTudo(){ renderPainel(); renderLista(); renderCheckin(); renderSorteio(); }
+  // ---------- Códigos promocionais ----------
+  function chaveCodigo(v){ return String(v || '').trim().replace(/^#+/, '').toLowerCase(); }
+  function usosDe(c){
+    var k = chaveCodigo(c.codigo);
+    return inscritos.filter(function(p){ return p.forma_pagamento === 'Código promocional' && chaveCodigo(p.codigo_promocional) === k; }).length;
+  }
+  function renderCodigos(){
+    $('cpLoadErr').hidden = !cpErro;
+    $('cpLoadErr').textContent = cpErro ? 'Não foi possível ler os códigos no banco (' + cpErro + '). Confira se o SQL da tabela codigos_promocionais foi executado no Supabase.' : '';
+    var ativos = codigos.filter(function(c){ return c.ativo; }).length;
+    $('cpInfo').textContent = codigos.length ? ativos + (ativos === 1 ? ' ativo' : ' ativos') + ' de ' + codigos.length : '';
+    $('cpEmpty').hidden = !!codigos.length || !!cpErro;
+    $('cpRows').innerHTML = codigos.map(function(c){
+      var n = usosDe(c);
+      return '<tr' + (c.ativo ? '' : ' class="cp-off"') + '>' +
+        '<td class="cp-c-code"><div class="cp-code">#' + esc(c.codigo) + (c.descricao ? '<small>' + esc(c.descricao) + '</small>' : '') + '</div></td>' +
+        '<td class="cp-c-uses">' + n + '<span class="cp-uses-l">' + (n === 1 ? ' inscrição' : ' inscrições') + '</span></td>' +
+        '<td class="cp-c-st"><span class="pill ' + (c.ativo ? 'ativo">Ativo' : 'inativo">Desativado') + '</span></td>' +
+        '<td class="cp-c-act"><div class="cp-acts">' +
+          '<button class="btn btn-sm btn-line" data-cptoggle="' + c.id + '" type="button">' + (c.ativo ? 'Desativar' : 'Ativar') + '</button>' +
+          (n ? '' : '<button class="btn btn-sm btn-undo" data-cprm="' + c.id + '" type="button">Excluir</button>') +
+        '</div></td>' +
+      '</tr>';
+    }).join('');
+  }
+  $('cpForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var f = $('cpForm'), cod = f.elements.codigo.value.trim().replace(/^#+/, ''), desc = f.elements.descricao.value.trim();
+    var err = '';
+    if (!cod) err = 'Informe o código.';
+    else if (!/^[A-Za-z0-9_-]+$/.test(cod)) err = 'Use só letras, números, hífen ou sublinhado, sem espaços e sem acentos.';
+    else if (codigos.some(function(c){ return chaveCodigo(c.codigo) === cod.toLowerCase(); })) err = 'Esse código já existe. Se estiver desativado, basta ativá-lo na lista.';
+    $('cpErr').textContent = err; $('cpErr').hidden = !err;
+    if (err){ f.elements.codigo.focus(); return; }
+    var btn = $('cpBtn'); btn.disabled = true; btn.textContent = 'Criando...';
+    comGravacao(sb.from('codigos_promocionais').insert({ codigo: cod, descricao: desc || null }).select().single()).then(function(r){
+      if (r.error){
+        if (r.error.code === '23505'){ $('cpErr').textContent = 'Esse código já existe.'; $('cpErr').hidden = false; return; }
+        throw r.error;
+      }
+      codigos.push(r.data); f.reset(); renderCodigos();
+      aviso('Código #' + r.data.codigo + ' criado. Ele já vale no site.', null);
+    }).catch(erroGravar).then(function(){ btn.disabled = false; btn.textContent = 'Criar código'; });
+  });
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('[data-cptoggle],[data-cprm]'); if (!b) return;
+    var id = b.dataset.cptoggle || b.dataset.cprm;
+    var c = codigos.find(function(x){ return x.id === id; }); if (!c) return;
+    b.disabled = true;
+    if (b.dataset.cptoggle){
+      var novo = !c.ativo;
+      comGravacao(sb.from('codigos_promocionais').update({ ativo: novo }).eq('id', id).select()).then(function(r){
+        if (r.error) throw r.error;
+        if (!r.data || !r.data.length) throw new Error('Nenhuma linha atualizada');
+        c.ativo = novo; renderCodigos();
+        aviso(novo ? 'Código #' + c.codigo + ' ativado.' : 'Código #' + c.codigo + ' desativado. O site deixa de aceitá-lo.', null);
+      }).catch(function(err){ b.disabled = false; erroGravar(err); });
+    } else {
+      if (!confirm('Excluir o código #' + c.codigo + '?')){ b.disabled = false; return; }
+      comGravacao(sb.from('codigos_promocionais').delete().eq('id', id)).then(function(r){
+        if (r.error) throw r.error;
+        codigos = codigos.filter(function(x){ return x.id !== id; }); renderCodigos();
+        aviso('Código #' + c.codigo + ' excluído.', null);
+      }).catch(function(err){ b.disabled = false; erroGravar(err); });
+    }
+  });
+
+  function renderTudo(){ renderPainel(); renderLista(); renderCheckin(); renderSorteio(); renderCodigos(); }
 })();
 </script>
 </body>
