@@ -238,6 +238,11 @@
   .ck-done{font-size:.8rem;font-weight:600;color:#00703D;white-space:nowrap}
   .ck-none{padding:14px 0;font-size:.86rem;color:var(--muted)}
   .ck-recent-title{margin-top:22px}
+  .ck-walk{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-2px 0 16px;padding:12px 14px;border:1.5px dashed var(--line);border-radius:14px;font-size:.84rem;color:var(--muted)}
+  #walkModal{max-height:calc(100vh - 32px);overflow-y:auto}
+  #walkModal .cp-form{gap:10px}
+  .walk-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width: 480px){ .walk-two{grid-template-columns:1fr} }
 
   /* Resultado da leitura */
   .ck-result{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(100% - 28px,440px);background:var(--panel);border-radius:22px;overflow:hidden;z-index:55;box-shadow:0 30px 70px -20px rgba(2,4,36,.6)}
@@ -476,7 +481,7 @@
           <option value="">Todos os status</option><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="cortesia">Cortesia</option>
         </select>
         <select id="fForma" aria-label="Forma de pagamento">
-          <option value="">Todas as formas</option><option>Pix</option><option>Cartão de crédito</option><option>Código promocional</option>
+          <option value="">Todas as formas</option><option>Pix</option><option>Cartão de crédito</option><option>Código promocional</option><option>Inscrição no dia</option>
         </select>
         <select id="fCliente" aria-label="Cliente F5">
           <option value="">Clientes e não clientes</option><option value="sim">Só clientes F5</option><option value="nao">Só não clientes</option>
@@ -528,6 +533,7 @@
         <div class="panel">
           <h2>Buscar inscrito</h2>
           <p class="ck-hint">Para quem esqueceu o ingresso: busque por nome, WhatsApp, empresa ou código.</p>
+          <div class="ck-walk"><span>Chegou alguém que não se inscreveu?</span><button class="btn btn-line btn-sm" data-walk type="button">Cadastrar na hora</button></div>
           <label class="search ck-search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
             <input id="ckQ" type="search" placeholder="Digite ao menos 2 letras" aria-label="Buscar inscrito para check-in">
@@ -636,6 +642,26 @@
   </div>
 </div>
 
+<!-- Modal de cadastro no dia do evento -->
+<div class="modal" id="walkModal" role="dialog" aria-modal="true" aria-labelledby="walkTitle" hidden>
+  <h3 id="walkTitle">Cadastro de quem não se inscreveu</h3>
+  <p>A pessoa entra como cortesia, com o check-in já registrado, e participa do sorteio.</p>
+  <form class="cp-form" id="walkForm" novalidate>
+    <label>Nome completo<input name="nome" type="text" maxlength="120" autocomplete="off"></label>
+    <label>WhatsApp<input name="whatsapp" type="tel" inputmode="numeric" maxlength="16" autocomplete="off" placeholder="(88) 99999-9999"></label>
+    <label>Empresa<input name="empresa" type="text" maxlength="120" autocomplete="off"></label>
+    <div class="walk-two">
+      <label>Cargo<input name="cargo" type="text" maxlength="80" autocomplete="off"></label>
+      <label>Cidade<input name="cidade" type="text" maxlength="80" autocomplete="off"></label>
+    </div>
+    <p class="cp-err" id="walkErr" hidden></p>
+    <div class="modal-actions">
+      <button class="btn btn-line" type="button" data-close>Cancelar</button>
+      <button class="btn btn-green" id="walkBtn" type="submit">Cadastrar e liberar entrada</button>
+    </div>
+  </form>
+</div>
+
 <!-- Modal de exclusão de inscrição -->
 <div class="modal" id="delModal" role="dialog" aria-modal="true" aria-labelledby="delMTitle" hidden>
   <h3 id="delMTitle"></h3>
@@ -730,6 +756,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   document.addEventListener('visibilitychange', function(){ if (logado && !document.hidden && !gravando) carregar(); });
 
   // ---------- Utilitários ----------
+  var NO_DIA = 'Inscrição no dia';
+  function noDia(p){ return p.forma_pagamento === 'Código promocional' && p.codigo_promocional === NO_DIA; }
+  function formaDe(p){ return noDia(p) ? NO_DIA : p.forma_pagamento; }
   function statusDe(p){ return p.forma_pagamento === 'Código promocional' ? 'cortesia' : p.status_pagamento; }
   var rotulo = { pago:'Pago', pendente:'Pendente', cortesia:'Cortesia' };
   function brl(v){ return v.toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
@@ -864,7 +893,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     var fs = $('fStatus').value, ff = $('fForma').value, fc = $('fCliente').value, fa = $('fArte').value;
     filtrados = inscritos.filter(function(p){
       if (fs && statusDe(p) !== fs) return false;
-      if (ff && p.forma_pagamento !== ff) return false;
+      if (ff && formaDe(p) !== ff) return false;
       if (fc === 'sim' && !p.cliente_f5) return false;
       if (fc === 'nao' && p.cliente_f5) return false;
       if (fa){
@@ -913,7 +942,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         '<td class="c-name"><button class="who" data-open="' + p.id + '" type="button"><b>' + esc(p.nome) + '</b><span>' + esc(p.empresa) + (p.cliente_f5 ? ' <span class="f5tag">Cliente F5</span>' : '') + tagArte(p) + '</span></button></td>' +
         '<td class="c-wpp">' + fone(p.whatsapp) + '</td>' +
         '<td class="c-seg">' + esc(p.segmento.replace(/^Outros: /,'')) + '<br><span style="color:var(--muted);font-size:.8rem">' + esc(p.cidade) + '</span></td>' +
-        '<td class="c-pay">' + esc(p.forma_pagamento) + (p.codigo_promocional ? '<br><span style="color:var(--muted);font-size:.8rem">' + esc(p.codigo_promocional) + '</span>' : '') + '</td>' +
+        '<td class="c-pay">' + esc(formaDe(p)) + (p.codigo_promocional && !noDia(p) ? '<br><span style="color:var(--muted);font-size:.8rem">' + esc(p.codigo_promocional) + '</span>' : '') + '</td>' +
         '<td class="c-status"><span class="pill ' + s + '">' + rotulo[s] + '</span></td>' +
         '<td class="c-date" style="white-space:nowrap">' + dataHora(p.criado_em) + '</td>' +
         '<td class="c-act"><div class="act">' + acao(p) + lixeira(p) + '</div></td>' +
@@ -986,7 +1015,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         '<dt>Cidade</dt><dd>' + esc(p.cidade) + '</dd>' +
         '<dt>Por onde soube</dt><dd>' + esc(p.origem) + '</dd>' +
         '<dt>Cliente F5</dt><dd>' + (p.cliente_f5 ? 'Sim' : 'Não') + '</dd>' +
-        '<dt>Pagamento</dt><dd>' + esc(p.forma_pagamento) + (p.codigo_promocional ? ' (' + p.codigo_promocional + ')' : '') + '</dd>' +
+        '<dt>Pagamento</dt><dd>' + esc(formaDe(p)) + (p.codigo_promocional && !noDia(p) ? ' (' + esc(p.codigo_promocional) + ')' : '') + '</dd>' +
         '<dt>Inscrito em</dt><dd>' + dataHora(p.criado_em) + '</dd>' +
         '<dt>Check-in</dt><dd>' + (p.checkin_em ? dataHora(p.checkin_em) : 'Ainda não') + '</dd>' +
         '<dt>Arte "Eu vou!"</dt><dd>' + textoArte(p) + '</dd>' +
@@ -997,10 +1026,84 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
 
   // ---------- Modais ----------
-  function fecharTudo(){ ['drawer','exportModal','regModal','delModal','ckResult','scrim'].forEach(function(id){ $(id).hidden = true; }); if (typeof leituraPausada !== 'undefined') leituraPausada = false; }
+  function fecharTudo(){ ['drawer','exportModal','regModal','delModal','walkModal','ckResult','scrim'].forEach(function(id){ $(id).hidden = true; }); if (typeof leituraPausada !== 'undefined') leituraPausada = false; }
   $('scrim').addEventListener('click', fecharTudo);
   document.addEventListener('click', function(e){ if (e.target.closest('[data-close]')) fecharTudo(); });
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape') fecharTudo(); });
+
+  // ---------- Cadastro no dia do evento ----------
+  function novoCodigo(){
+    var letras = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', c;
+    do {
+      var a = new Uint32Array(6); crypto.getRandomValues(a);
+      c = 'VQV-' + Array.prototype.map.call(a, function(n){ return letras[n % letras.length]; }).join('');
+    } while (inscritos.some(function(x){ return x.codigo === c; }));
+    return c;
+  }
+  document.addEventListener('click', function(e){
+    if (!e.target.closest('[data-walk]')) return;
+    var f = $('walkForm'); f.reset(); $('walkErr').hidden = true; $('walkBtn').disabled = false;
+    // Se a equipe já digitou um nome na busca, aproveita no cadastro
+    var busca = $('ckQ').value.trim();
+    if (busca && !/\d/.test(busca)) f.elements.nome.value = busca;
+    $('walkModal').hidden = false; $('scrim').hidden = false;
+    setTimeout(function(){ f.elements[f.elements.nome.value ? 'whatsapp' : 'nome'].focus(); }, 50);
+  });
+  $('walkForm').elements.whatsapp.addEventListener('input', function(){
+    var d = this.value.replace(/\D/g,'').slice(0, 11);
+    this.value = d.length > 2 ? '(' + d.slice(0,2) + ') ' + (d.length > 7 ? d.slice(2, d.length - 4) + '-' + d.slice(-4) : d.slice(2)) : d;
+  });
+  $('walkForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var f = this, btn = $('walkBtn');
+    var v = {
+      nome: f.elements.nome.value.trim().replace(/\s+/g, ' '),
+      whatsapp: f.elements.whatsapp.value.replace(/\D/g, ''),
+      empresa: f.elements.empresa.value.trim(),
+      cargo: f.elements.cargo.value.trim(),
+      cidade: f.elements.cidade.value.trim()
+    };
+    var err = '', campo = null;
+    if (v.nome.split(' ').length < 2){ err = 'Informe nome e sobrenome.'; campo = 'nome'; }
+    else if (v.whatsapp.length < 10){ err = 'Informe o WhatsApp com DDD.'; campo = 'whatsapp'; }
+    else if (!v.empresa){ err = 'Informe a empresa.'; campo = 'empresa'; }
+    else if (!v.cargo){ err = 'Informe o cargo.'; campo = 'cargo'; }
+    else if (!v.cidade){ err = 'Informe a cidade.'; campo = 'cidade'; }
+    if (!err){
+      var ja = inscritos.find(function(x){ return x.whatsapp === v.whatsapp; });
+      if (ja){ err = 'Esse WhatsApp já tem inscrição, em nome de ' + ja.nome + '. Busque pelo nome e faça o check-in normal.'; campo = 'whatsapp'; }
+    }
+    $('walkErr').textContent = err; $('walkErr').hidden = !err;
+    if (err){ f.elements[campo].focus(); return; }
+    btn.disabled = true;
+    var tentativas = 0;
+    function gravar(){
+      var dados = {
+        codigo: novoCodigo(), nome: v.nome, whatsapp: v.whatsapp, empresa: v.empresa, cargo: v.cargo, cidade: v.cidade,
+        segmento: 'Não informado', origem: NO_DIA, cliente_f5: false,
+        forma_pagamento: 'Código promocional', codigo_promocional: NO_DIA, status_pagamento: 'pendente',
+        checkin_em: new Date().toISOString(), checkin_por: $('ckWho').value.trim() || null
+      };
+      return comGravacao(sb.from('inscricoes').insert(dados).select().single()).then(function(r){
+        if (r.error && r.error.code === '23505' && tentativas++ < 2) return gravar(); // código repetido: gera outro
+        if (r.error) throw r.error;
+        return r.data;
+      });
+    }
+    gravar().then(function(p){
+      inscritos.unshift(p); $('ckQ').value = '';
+      fecharTudo(); renderTudo();
+      confirmar = { id: p.id };
+      mostrarResultado('ok', 'Cadastro feito, entrada liberada', 'Check-in registrado às ' + hora(p.checkin_em),
+        pessoaHTML(p), '<button class="btn btn-green" data-ckclose type="button">Próximo ingresso</button>', true);
+    }).catch(function(e){
+      btn.disabled = false;
+      console.error(e);
+      if (ehErroDeLogin(e)) return mostrarLogin('Sua sessão expirou. Entre de novo.');
+      $('walkErr').textContent = 'O banco não aceitou o cadastro' + (e && e.message ? ' (' + e.message + ')' : '') + '. Verifique a internet e tente de novo.';
+      $('walkErr').hidden = false;
+    });
+  });
 
   // ---------- Exclusão de inscrição ----------
   var excluirId = null;
@@ -1063,7 +1166,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       return {
         'Código do ingresso': p.codigo, 'Nome': p.nome, 'WhatsApp': fone(p.whatsapp), 'Empresa': p.empresa, 'CNPJ': p.cnpj ? cnpjFmt(p.cnpj) : '',
         'Segmento': p.segmento, 'Cargo': p.cargo || '', 'Cidade': p.cidade, 'Por onde soube': p.origem, 'Cliente F5': p.cliente_f5 ? 'Sim' : 'Não',
-        'Forma de pagamento': p.forma_pagamento, 'Status': rotulo[statusDe(p)], 'Pago em': p.pago_em ? dataHora(p.pago_em) : '',
+        'Forma de pagamento': formaDe(p), 'Status': rotulo[statusDe(p)], 'Pago em': p.pago_em ? dataHora(p.pago_em) : '',
         'Inscrito em': dataHora(p.criado_em), 'Check-in': p.checkin_em ? dataHora(p.checkin_em) : '',
         'Baixou a arte': arte[p.codigo] && arte[p.codigo].baixou ? 'Sim' : 'Não',
         'Compartilhou a arte': arte[p.codigo] && arte[p.codigo].compartilhou ? 'Sim' : 'Não'
@@ -1136,7 +1239,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       var s = statusDe(p);
       var dir = p.checkin_em ? '<span class="ck-done">Entrou às ' + hora(p.checkin_em) + '</span>' : '<button class="btn btn-sm btn-pay" data-ck="' + p.id + '" type="button">Fazer check-in</button>';
       return '<div class="ck-item"><div><b>' + esc(p.nome) + '</b><small>' + esc(p.empresa) + ', ' + fone(p.whatsapp) + '</small><span class="pill ' + s + '">' + rotulo[s] + '</span></div>' + dir + '</div>';
-    }).join('') : '<p class="ck-none">Ninguém encontrado com essa busca.</p>';
+    }).join('') : '<p class="ck-none">Ninguém encontrado com essa busca. Se a pessoa não se inscreveu, use <button class="btn btn-line btn-sm" data-walk type="button">Cadastrar na hora</button></p>';
   }
   $('ckQ').addEventListener('input', buscarCheckin);
 
@@ -1176,7 +1279,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
   function fecharResultado(){
     clearTimeout(autoFechar); $('ckResult').hidden = true;
-    if ($('drawer').hidden && $('exportModal').hidden && $('regModal').hidden && $('delModal').hidden) $('scrim').hidden = true;
+    if ($('drawer').hidden && $('exportModal').hidden && $('regModal').hidden && $('delModal').hidden && $('walkModal').hidden) $('scrim').hidden = true;
     leituraPausada = false;
   }
   function pessoaHTML(p){
