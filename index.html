@@ -155,7 +155,10 @@
   .pill.cortesia{background:var(--pink-soft);color:var(--pink-ink)}
   .f5tag{font-size:.72rem;font-weight:700;color:var(--pink-ink);white-space:nowrap;margin-left:4px}
   td.c-wpp,td.c-pay{white-space:nowrap}
-  .act{display:flex;justify-content:flex-end}
+  .act{display:flex;justify-content:flex-end;align-items:center;gap:8px}
+  .btn-trash{flex:none;width:34px;height:34px;display:inline-grid;place-items:center;background:none;border:1.5px solid var(--line);border-radius:10px;color:var(--muted);cursor:pointer}
+  .btn-trash:hover{color:#B42318;border-color:#B42318;background:#FDECEC}
+  .btn-trash svg{width:17px;height:17px}
   .btn-pay{background:var(--ink);color:#fff}
   .btn-pay:hover{background:var(--green)}
   .btn-undo{background:none;border:1.5px solid var(--line);color:var(--muted)}
@@ -181,6 +184,11 @@
   dt{color:var(--muted)}
   dd{font-weight:500;overflow-wrap:anywhere}
   .drawer .act{justify-content:flex-start;margin-top:22px}
+  .del-zone{margin-top:28px;padding-top:18px;border-top:1px solid var(--line)}
+  .btn-del{background:none;border:1.5px solid #F2C4C4;color:#B42318}
+  .btn-del:hover{background:#FDECEC;border-color:#B42318}
+  .btn-danger{background:#B42318;color:#fff}
+  .btn-danger:hover{background:#8F1B12}
 
   .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(100% - 32px,440px);background:var(--panel);border-radius:20px;padding:26px;z-index:51}
   .modal h3{font-size:1.15rem;font-weight:700;margin-bottom:8px}
@@ -628,6 +636,16 @@
   </div>
 </div>
 
+<!-- Modal de exclusão de inscrição -->
+<div class="modal" id="delModal" role="dialog" aria-modal="true" aria-labelledby="delMTitle" hidden>
+  <h3 id="delMTitle"></h3>
+  <p id="delMText"></p>
+  <div class="modal-actions">
+    <button class="btn btn-line" type="button" data-close>Cancelar</button>
+    <button class="btn btn-danger" id="delConfirm" type="button">Sim, excluir</button>
+  </div>
+</div>
+
 <div class="ck-result" id="ckResult" role="dialog" aria-modal="true" aria-labelledby="ckRTitle" hidden></div>
 
 <div class="toast" id="toast" hidden role="status"><span id="toastText"></span><button id="toastUndo" type="button">Desfazer</button></div>
@@ -869,6 +887,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     if (s === 'pago') return '<button class="btn btn-sm btn-undo" data-unpay="' + p.id + '" type="button">Voltar para pendente</button>';
     return '';
   }
+  function lixeira(p){
+    return '<button class="btn-trash" data-del="' + p.id + '" type="button" title="Excluir inscrição" aria-label="Excluir a inscrição de ' + esc(p.nome) + '">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>';
+  }
   function tagArte(p){
     var r = arte[p.codigo]; if (!r) return '';
     return ' <span class="f5tag" style="color:#00703D">' + (r.compartilhou ? 'Compartilhou a arte' : 'Baixou a arte') + '</span>';
@@ -894,7 +916,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         '<td class="c-pay">' + esc(p.forma_pagamento) + (p.codigo_promocional ? '<br><span style="color:var(--muted);font-size:.8rem">' + esc(p.codigo_promocional) + '</span>' : '') + '</td>' +
         '<td class="c-status"><span class="pill ' + s + '">' + rotulo[s] + '</span></td>' +
         '<td class="c-date" style="white-space:nowrap">' + dataHora(p.criado_em) + '</td>' +
-        '<td class="c-act"><div class="act">' + acao(p) + '</div></td>' +
+        '<td class="c-act"><div class="act">' + acao(p) + lixeira(p) + '</div></td>' +
       '</tr>';
     }).join('');
   }
@@ -969,15 +991,61 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         '<dt>Check-in</dt><dd>' + (p.checkin_em ? dataHora(p.checkin_em) : 'Ainda não') + '</dd>' +
         '<dt>Arte "Eu vou!"</dt><dd>' + textoArte(p) + '</dd>' +
       '</dl>' +
-      '<div class="act">' + acao(p) + '</div>';
+      '<div class="act">' + acao(p) + '</div>' +
+      '<div class="del-zone"><button class="btn btn-sm btn-del" data-del="' + p.id + '" type="button">Excluir inscrição</button></div>';
     $('drawer').hidden = false; $('scrim').hidden = false;
   }
 
   // ---------- Modais ----------
-  function fecharTudo(){ ['drawer','exportModal','regModal','ckResult','scrim'].forEach(function(id){ $(id).hidden = true; }); if (typeof leituraPausada !== 'undefined') leituraPausada = false; }
+  function fecharTudo(){ ['drawer','exportModal','regModal','delModal','ckResult','scrim'].forEach(function(id){ $(id).hidden = true; }); if (typeof leituraPausada !== 'undefined') leituraPausada = false; }
   $('scrim').addEventListener('click', fecharTudo);
   document.addEventListener('click', function(e){ if (e.target.closest('[data-close]')) fecharTudo(); });
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape') fecharTudo(); });
+
+  // ---------- Exclusão de inscrição ----------
+  var excluirId = null;
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('[data-del]'); if (!b) return;
+    var p = inscritos.find(function(x){ return x.id === b.dataset.del; }); if (!p) return;
+    excluirId = p.id;
+    var ganhou = premios.find(function(x){ return x.ganhador === p.id; });
+    if (ganhou){
+      $('delMTitle').textContent = 'Não é possível excluir';
+      $('delMText').textContent = p.nome + ' já ganhou o prêmio "' + ganhou.nome + '" no sorteio. Para não apagar o registro do ganhador, esta inscrição não pode ser excluída.';
+      $('delConfirm').hidden = true;
+    } else {
+      var avisos = [];
+      if (statusDe(p) === 'pago') avisos.push('Ela está marcada como paga, então o valor sai do total recebido.');
+      if (p.checkin_em) avisos.push('A pessoa já fez check-in no evento.');
+      $('delMTitle').textContent = 'Tem certeza que deseja excluir a inscrição de ' + p.nome.split(' ')[0] + '?';
+      $('delMText').textContent = 'A inscrição de ' + p.nome + ' (' + p.empresa + '), ingresso ' + p.codigo + ', será apagada do banco de vez e o ingresso deixa de valer no check-in. ' +
+        (avisos.length ? avisos.join(' ') + ' ' : '') + 'Essa ação não pode ser desfeita.';
+      $('delConfirm').hidden = false;
+    }
+    $('drawer').hidden = true; $('delModal').hidden = false; $('scrim').hidden = false;
+  });
+  $('delConfirm').addEventListener('click', function(){
+    var id = excluirId, btn = this;
+    var p = inscritos.find(function(x){ return x.id === id; }); if (!p) return fecharTudo();
+    btn.disabled = true;
+    // Se a pessoa foi sorteada e estava ausente, apaga primeiro esse registro do sorteio
+    var antes = ausentes[id] ? comGravacao(sb.from('sorteios').delete().eq('inscricao_id', id).eq('resultado', 'ausente')) : Promise.resolve({});
+    antes.then(function(r){
+      if (r.error) throw r.error;
+      return comGravacao(sb.from('inscricoes').delete().eq('id', id).select('id'));
+    }).then(function(r){
+      if (r.error) throw r.error;
+      if (!r.data || !r.data.length){ var semPermissao = new Error('Nenhuma linha excluída'); semPermissao.semPermissao = true; throw semPermissao; }
+      inscritos = inscritos.filter(function(x){ return x.id !== id; });
+      delete ausentes[id]; detalheId = null; excluirId = null;
+      fecharTudo(); renderTudo();
+      aviso('Inscrição de ' + p.nome.split(' ')[0] + ' excluída', null);
+    }).catch(function(e){
+      fecharTudo();
+      if (e && e.semPermissao){ console.error(e); aviso('O banco não permitiu excluir. Confira a permissão no Supabase.', null); }
+      else erroGravar(e);
+    }).then(function(){ btn.disabled = false; });
+  });
 
   // ---------- Exportação ----------
   $('openExport').addEventListener('click', function(){
@@ -1108,7 +1176,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
   function fecharResultado(){
     clearTimeout(autoFechar); $('ckResult').hidden = true;
-    if ($('drawer').hidden && $('exportModal').hidden && $('regModal').hidden) $('scrim').hidden = true;
+    if ($('drawer').hidden && $('exportModal').hidden && $('regModal').hidden && $('delModal').hidden) $('scrim').hidden = true;
     leituraPausada = false;
   }
   function pessoaHTML(p){
