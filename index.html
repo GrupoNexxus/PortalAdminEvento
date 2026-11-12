@@ -763,7 +763,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
   // ---------- Utilitários ----------
   var NO_DIA = 'Inscrição no dia';
-  function noDia(p){ return p.forma_pagamento === 'Código promocional' && p.codigo_promocional === NO_DIA; }
+  function noDia(p){ return p.inscricao_no_dia === true; }
   function formaDe(p){ return noDia(p) ? NO_DIA : p.forma_pagamento; }
   function statusDe(p){ return p.forma_pagamento === 'Código promocional' ? 'cortesia' : p.status_pagamento; }
   var rotulo = { pago:'Pago', pendente:'Pendente', cortesia:'Cortesia' };
@@ -1125,7 +1125,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       var dados = {
         codigo: novoCodigo(), nome: v.nome, whatsapp: v.whatsapp, empresa: v.empresa, cargo: v.cargo, cidade: v.cidade,
         segmento: 'Não informado', origem: NO_DIA, cliente_f5: false,
-        forma_pagamento: 'Código promocional', codigo_promocional: NO_DIA, status_pagamento: 'pendente',
+        forma_pagamento: 'Código promocional', codigo_promocional: null, inscricao_no_dia: true, status_pagamento: 'pendente',
         checkin_em: new Date().toISOString(), checkin_por: $('ckWho').value.trim() || null
       };
       return comGravacao(sb.from('inscricoes').insert(dados).select().single()).then(function(r){
