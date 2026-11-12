@@ -239,10 +239,16 @@
   .ck-none{padding:14px 0;font-size:.86rem;color:var(--muted)}
   .ck-recent-title{margin-top:22px}
   .ck-walk{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-2px 0 16px;padding:12px 14px;border:1.5px dashed var(--line);border-radius:14px;font-size:.84rem;color:var(--muted)}
-  #walkModal{max-height:calc(100vh - 32px);overflow-y:auto}
+  #walkModal{max-height:calc(100dvh - 32px);overflow-y:auto;overflow-x:hidden}
   #walkModal .cp-form{gap:10px}
-  .walk-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  @media (max-width: 480px){ .walk-two{grid-template-columns:1fr} }
+  #walkModal label{min-width:0}
+  #walkModal input{width:100%;min-width:0}
+  #walkModal .modal-actions{flex-wrap:wrap}
+  @media (max-width: 480px){ #walkModal{padding:20px} #walkModal .modal-actions .btn{flex:1 1 100%} }
+  .city-list{list-style:none;padding:4px;margin:4px 0 0;border:1.5px solid var(--line);border-radius:12px;max-height:190px;overflow-y:auto;background:var(--panel)}
+  .city-list li{padding:9px 12px;border-radius:8px;cursor:pointer;font-size:.88rem;font-weight:500}
+  .city-list li[aria-selected="true"],.city-list li:hover{background:var(--green-soft)}
+  .city-list li.none{color:var(--muted);cursor:default;background:none}
 
   /* Resultado da leitura */
   .ck-result{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(100% - 28px,440px);background:var(--panel);border-radius:22px;overflow:hidden;z-index:55;box-shadow:0 30px 70px -20px rgba(2,4,36,.6)}
@@ -650,10 +656,10 @@
     <label>Nome completo<input name="nome" type="text" maxlength="120" autocomplete="off"></label>
     <label>WhatsApp<input name="whatsapp" type="tel" inputmode="numeric" maxlength="16" autocomplete="off" placeholder="(88) 99999-9999"></label>
     <label>Empresa<input name="empresa" type="text" maxlength="120" autocomplete="off"></label>
-    <div class="walk-two">
-      <label>Cargo<input name="cargo" type="text" maxlength="80" autocomplete="off"></label>
-      <label>Cidade<input name="cidade" type="text" maxlength="80" autocomplete="off"></label>
-    </div>
+    <label>Cargo<input name="cargo" type="text" maxlength="80" autocomplete="off"></label>
+    <label>Cidade<input name="cidade" id="walkCidade" type="text" maxlength="80" autocomplete="off" placeholder="Comece a digitar. Ex.: Sobral"
+      role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="walkCidadeLista"></label>
+    <ul class="city-list" id="walkCidadeLista" role="listbox" hidden></ul>
     <p class="cp-err" id="walkErr" hidden></p>
     <div class="modal-actions">
       <button class="btn btn-line" type="button" data-close>Cancelar</button>
@@ -1049,6 +1055,44 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     $('walkModal').hidden = false; $('scrim').hidden = false;
     setTimeout(function(){ f.elements[f.elements.nome.value ? 'whatsapp' : 'nome'].focus(); }, 50);
   });
+  // Cidade com sugestões dos municípios do Ceará (mesma lista do formulário do site)
+  (function(){
+    var CIDADES_CE = ["Abaiara", "Acarape", "Acaraú", "Acopiara", "Aiuaba", "Alcântaras", "Altaneira", "Alto Santo", "Amontada", "Antonina do Norte", "Apuiarés", "Aquiraz", "Aracati", "Aracoiaba", "Ararendá", "Araripe", "Aratuba", "Arneiroz", "Assaré", "Aurora", "Baixio", "Banabuiú", "Barbalha", "Barreira", "Barro", "Barroquinha", "Baturité", "Beberibe", "Bela Cruz", "Boa Viagem", "Brejo Santo", "Camocim", "Campos Sales", "Canindé", "Capistrano", "Caridade", "Cariré", "Caririaçu", "Cariús", "Carnaubal", "Cascavel", "Catarina", "Catunda", "Caucaia", "Cedro", "Chaval", "Choró", "Chorozinho", "Coreaú", "Crateús", "Crato", "Croatá", "Cruz", "Deputado Irapuan Pinheiro", "Ererê", "Eusébio", "Farias Brito", "Forquilha", "Fortaleza", "Fortim", "Frecheirinha", "General Sampaio", "Graça", "Granja", "Granjeiro", "Groaíras", "Guaiúba", "Guaraciaba do Norte", "Guaramiranga", "Hidrolândia", "Horizonte", "Ibaretama", "Ibiapina", "Ibicuitinga", "Icapuí", "Icó", "Iguatu", "Independência", "Ipaporanga", "Ipaumirim", "Ipu", "Ipueiras", "Iracema", "Irauçuba", "Itaiçaba", "Itaitinga", "Itapajé", "Itapipoca", "Itapiúna", "Itarema", "Itatira", "Jaguaretama", "Jaguaribara", "Jaguaribe", "Jaguaruana", "Jardim", "Jati", "Jijoca de Jericoacoara", "Juazeiro do Norte", "Jucás", "Lavras da Mangabeira", "Limoeiro do Norte", "Madalena", "Maracanaú", "Maranguape", "Marco", "Martinópole", "Massapê", "Mauriti", "Meruoca", "Milagres", "Milhã", "Miraíma", "Missão Velha", "Mombaça", "Monsenhor Tabosa", "Morada Nova", "Moraújo", "Morrinhos", "Mucambo", "Mulungu", "Nova Olinda", "Nova Russas", "Novo Oriente", "Ocara", "Orós", "Pacajus", "Pacatuba", "Pacoti", "Pacujá", "Palhano", "Palmácia", "Paracuru", "Paraipaba", "Parambu", "Paramoti", "Pedra Branca", "Penaforte", "Pentecoste", "Pereiro", "Pindoretama", "Piquet Carneiro", "Pires Ferreira", "Poranga", "Porteiras", "Potengi", "Potiretama", "Quiterianópolis", "Quixadá", "Quixelô", "Quixeramobim", "Quixeré", "Redenção", "Reriutaba", "Russas", "Saboeiro", "Salitre", "Santa Quitéria", "Santana do Acaraú", "Santana do Cariri", "São Benedito", "São Gonçalo do Amarante", "São João do Jaguaribe", "São Luís do Curu", "Senador Pompeu", "Senador Sá", "Sobral", "Solonópole", "Tabuleiro do Norte", "Tamboril", "Tarrafas", "Tauá", "Tejuçuoca", "Tianguá", "Trairi", "Tururu", "Ubajara", "Umari", "Umirim", "Uruburetama", "Uruoca", "Varjota", "Várzea Alegre", "Viçosa do Ceará"];
+    var input = $('walkCidade'), lista = $('walkCidadeLista'), ativo = -1, itens = [];
+    function fechar(){ lista.hidden = true; input.setAttribute('aria-expanded', 'false'); ativo = -1; }
+    function escolher(nome){ input.value = nome; fechar(); }
+    function marcar(i){
+      itens.forEach(function(li, n){ li.setAttribute('aria-selected', n === i ? 'true' : 'false'); });
+      ativo = i; if (itens[i]) itens[i].scrollIntoView({ block: 'nearest' });
+    }
+    function abrir(){
+      var q = norm(input.value.trim());
+      var achadas = CIDADES_CE.filter(function(c){ return !q || norm(c).indexOf(q) > -1; });
+      achadas.sort(function(a, b){ return (norm(a).indexOf(q) === 0 ? 0 : 1) - (norm(b).indexOf(q) === 0 ? 0 : 1); });
+      achadas = achadas.slice(0, 8);
+      lista.innerHTML = achadas.length
+        ? achadas.map(function(c){ return '<li role="option" aria-selected="false">' + esc(c) + '</li>'; }).join('')
+        : '<li class="none">Nenhuma cidade do Ceará encontrada. Pode deixar como digitado.</li>';
+      itens = Array.prototype.slice.call(lista.querySelectorAll('li[role=option]'));
+      lista.hidden = false; input.setAttribute('aria-expanded', 'true'); ativo = -1;
+    }
+    input.addEventListener('input', abrir);
+    input.addEventListener('focus', abrir);
+    input.addEventListener('keydown', function(e){
+      if (lista.hidden) return;
+      if (e.key === 'ArrowDown'){ e.preventDefault(); marcar(Math.min(itens.length - 1, ativo + 1)); }
+      else if (e.key === 'ArrowUp'){ e.preventDefault(); marcar(Math.max(0, ativo - 1)); }
+      else if (e.key === 'Enter' && itens[ativo]){ e.preventDefault(); escolher(itens[ativo].textContent); }
+      else if (e.key === 'Escape'){ e.stopPropagation(); fechar(); }
+    });
+    // mousedown para escolher antes de o campo perder o foco
+    lista.addEventListener('mousedown', function(e){
+      var li = e.target.closest('li[role=option]'); if (!li) return;
+      e.preventDefault(); escolher(li.textContent);
+    });
+    input.addEventListener('blur', function(){ setTimeout(fechar, 120); });
+  })();
+
   $('walkForm').elements.whatsapp.addEventListener('input', function(){
     var d = this.value.replace(/\D/g,'').slice(0, 11);
     this.value = d.length > 2 ? '(' + d.slice(0,2) + ') ' + (d.length > 7 ? d.slice(2, d.length - 4) + '-' + d.slice(-4) : d.slice(2)) : d;
